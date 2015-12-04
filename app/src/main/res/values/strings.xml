@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Meet_me</string>
+    
+    <string name="enter_location">Enter friend\'s location</string>
+
+    <string name="google_maps_key" translatable="false" templateMergeStrategy="preserve">
+        AIzaSyA_os0YpUO-LdmsyMjzZY5jFrqHjO8bpDc
+    </string>
+
+</resources>
