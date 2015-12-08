@@ -64,7 +64,7 @@ public class LaunchActivity extends Activity {
         String location = saveText.getText().toString().trim();
 
         List<Address> addressList=null;
-        if(location!=null|| !location.equals("")) {
+        if(!location.equals("")|| !location.equals(null)) {
             Geocoder geocoder = new Geocoder(this);
             try {
                 addressList = geocoder.getFromLocationName(location, 1);
@@ -106,6 +106,8 @@ public class LaunchActivity extends Activity {
 
             // The user has selected a place. Extract the name and address.
             final Place place = PlacePicker.getPlace(data, this);
+            final double lat = place.getLatLng().latitude;
+            final double lon = place.getLatLng().longitude;
 
             final String addr= place.getAddress().toString().trim();
             Log.d("SEARCH ADDRESS",addr);
@@ -117,6 +119,8 @@ public class LaunchActivity extends Activity {
 
             Intent intent = new Intent(this, MapsActivity.class);
             intent.putExtra(EXTRA_MESSAGE, addr);
+            intent.putExtra("newlat",lat);
+            intent.putExtra("newlon",lon);
             //clear the input for more notes
            // saveText.getText().clear();
 

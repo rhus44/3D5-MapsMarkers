@@ -8,6 +8,8 @@ import android.location.Address;
 import android.location.Criteria;
 import android.location.Geocoder;
 import android.os.Bundle;
+import android.provider.SyncStateContract;
+import android.service.carrier.CarrierMessagingService;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.View;
@@ -17,14 +19,24 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.widget.TextView;
 import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.drive.Drive;
+import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.GeoDataApi;
 import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.PlaceDetectionApi;
+import com.google.android.gms.location.places.PlaceLikelihood;
+import com.google.android.gms.location.places.PlaceLikelihoodBuffer;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -35,13 +47,19 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import android.os.AsyncTask;
 
 import java.io.IOException;
 import java.security.PrivateKey;
 import java.util.List;
 
+
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback , GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
-    private GoogleMap mMap;
+
+
+
+    public GoogleMap mMap;
     private Marker meet;
     private double lat4;
     private double lon4;
@@ -52,21 +70,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String friend_location;
     private String message = null;
     protected Button button;
+    private Marker[] placeMarkers;
+    private final int MAX_PLACES = 20;
+    private MarkerOptions[] places;
 
     public static final String TAG = MapsActivity.class.getSimpleName();
     public final static String EXTRA_MESSAGE = "com.lydia.meet_me.MESSAGE";
 
     @Override
-    protected void onCreate(Bundle savedInstanceState){
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         Intent intent = getIntent();
         friend_location = intent.getStringExtra(LaunchActivity.EXTRA_MESSAGE);
+        placeMarkers = new Marker[MAX_PLACES];
+        lat4 = intent.getDoubleExtra("newlat",0);
+        lon4 = intent.getDoubleExtra("newlon",0);
+
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
+                .addApi(Places.PLACE_DETECTION_API)
                 .build();
 
         setUpMapIfNeeded();
@@ -89,7 +115,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     {
         //EditText location_tf= (EditText)findViewById(R.id.TFaddress);
         //String location= location_tf.getText().toString();
+
         String location = friend_location;
+        /*
         List<Address> addressList=null;
         if(location!=null|| !location.equals("")){
             Geocoder geocoder = new Geocoder(this);
@@ -101,13 +129,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Address address= addressList.get(0);
             LatLng latLng= new LatLng(address.getLatitude(),address.getLongitude());
            // mMap.addMarker(new MarkerOptions().position(latLng).title("Friend Marker"));
+           */
+        LatLng latLng = new LatLng(lat4,lon4);
             Marker friend = mMap.addMarker(new MarkerOptions()
                     .position(latLng)
                     .draggable(true)
                     .alpha(0.7f)
                     .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_archer))
-            .draggable(true)
-            .title("My friend/pal/buddy"));
+                    .draggable(true)
+                    .title("My friend/pal/buddy"));
 
             Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
                     mGoogleApiClient);
@@ -115,8 +145,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             double lat1= mLastLocation.getLatitude();
             double lon1= mLastLocation.getLongitude();
-            double lat2= address.getLatitude();
-            double lon2= address.getLongitude();
+           // double lat2= address.getLatitude();
+            //double lon2= address.getLongitude();
+        double lat2= lat4;
+        double lon2= lon4;
 
             System.out.println("lat1="+lat1+"lon1 = "+lon1+"lat2 = "+lat2+"lon2 = "+lon2);
 
@@ -134,9 +166,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             lat4 = Math.toDegrees(lat3);
             lon4 = Math.toDegrees(lon3);
             LatLng latLnga= new LatLng(lat4, lon4);
+
+
+
             meet = mMap.addMarker(new MarkerOptions().position(latLnga).title("Meeting Place")
                     .draggable(true).alpha(.7f).icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_meetloc)));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLnga));
+
+
+            String placesSearchStr = "https://maps.googleapis.com/maps/api/place/nearbysearch/"+
+                    "json?location="+lat4+","+lon4+
+                    "&radius=1000&sensor=true"+"&types=food%7Cbar"+
+                    "&key=AIzaSyA_os0YpUO-LdmsyMjzZY5jFrqHjO8bpDc";
+            Log.d("SEASTR", placesSearchStr);
+            new DownloadFiles(this).execute(lat4,lon4);
 
 
 
@@ -174,17 +217,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
                             button = (Button) findViewById(R.id.button);
-                            button.setOnClickListener(new Button.OnClickListener() {
-                                public void onClick(View v) {
-                                    intent.putExtra(EXTRA_MESSAGE, message);
-                                    startActivity(intent);
+            button.setOnClickListener(new Button.OnClickListener() {
+                public void onClick(View v) {
+                    intent.putExtra(EXTRA_MESSAGE, message);
+
+                    startActivity(intent);
                                 }
                             });
 
 
                         }
 
-                    }
+
 
         protected void onResume(){
         super.onResume();
@@ -252,7 +296,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-    private void setUpMapIfNeeded(){
+    public void setUpMapIfNeeded(){
         if (mMap==null){
             mMap=((SupportMapFragment)getSupportFragmentManager().findFragmentById(R.id.map))
                     .getMap();
@@ -296,4 +340,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.d("LOC",loc.toString());
         message = locationfind(loc.latitude,loc.longitude);
     }
-}
+
+
+    }
+
+
+
