@@ -19,6 +19,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.location.Location;
 import android.location.LocationManager;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -107,6 +108,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         setUpMapIfNeeded();
 
+
+    }
+    public void getStreet(View view){
+        Toast.makeText(getApplicationContext(), "GO Alaa GO!!!",
+                Toast.LENGTH_SHORT).show();
 
     }
 
@@ -401,8 +407,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             //imageView1.setBackground(roundedImage);
             Toast.makeText(getApplicationContext(), "Image Loaded",
                     Toast.LENGTH_SHORT).show();
-            ImageView street = (ImageView) findViewById(R.id.streetview);
-            street.setImageBitmap(result);
+            int bs = bitmap.getPixel(0,0);
+            ImageButton street = (ImageButton) findViewById(R.id.streetview);
+            if(bs!= -1776674) {
+                Log.d("bitmapSize", Integer.toString(bs));
+
+                street.setImageBitmap(bitmap);
+            }
+            else{
+                street.setImageBitmap(null);
+            }
         }
     }
 
