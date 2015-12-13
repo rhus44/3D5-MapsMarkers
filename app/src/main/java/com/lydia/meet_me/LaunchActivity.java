@@ -12,6 +12,7 @@ import android.view.MenuItem;
 import android.view.Window;
 import android.widget.EditText;
 import android.view.View;
+import android.widget.Toast;
 
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
@@ -43,6 +44,8 @@ public class LaunchActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_launch, menu);
+
+
         return true;
     }
 
@@ -64,6 +67,11 @@ public class LaunchActivity extends Activity {
         String location = saveText.getText().toString().trim();
 
         List<Address> addressList=null;
+        if(location.equals("")){
+            Toast.makeText(getApplicationContext(), "please enter a valid search",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
         if(!location.equals("")|| !location.equals(null)) {
             Geocoder geocoder = new Geocoder(this);
             try {

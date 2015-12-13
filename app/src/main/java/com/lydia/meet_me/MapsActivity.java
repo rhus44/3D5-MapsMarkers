@@ -4,6 +4,8 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Address;
 import android.location.Criteria;
 import android.location.Geocoder;
@@ -17,6 +19,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.location.Location;
 import android.location.LocationManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONArray;
@@ -41,8 +44,10 @@ import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -50,9 +55,12 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import android.os.AsyncTask;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.security.PrivateKey;
 import java.util.List;
-
+import java.util.Map;
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback , GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
@@ -70,10 +78,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String friend_location;
     private String message = null;
     protected Button button;
-    private Marker[] placeMarkers;
+    public Marker[] placeMarkers;
     private final int MAX_PLACES = 20;
     private MarkerOptions[] places;
-
+    private double search =0;
+    public Bitmap bitmap = null;
     public static final String TAG = MapsActivity.class.getSimpleName();
     public final static String EXTRA_MESSAGE = "com.lydia.meet_me.MESSAGE";
 
@@ -84,8 +93,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Intent intent = getIntent();
         friend_location = intent.getStringExtra(LaunchActivity.EXTRA_MESSAGE);
         placeMarkers = new Marker[MAX_PLACES];
-        lat4 = intent.getDoubleExtra("newlat",0);
+        lat4 = intent.getDoubleExtra("newlat", 0);
         lon4 = intent.getDoubleExtra("newlon",0);
+
 
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -108,6 +118,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.setMyLocationEnabled(true);
         mGoogleApiClient.connect();
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+
         // Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
     }
 
@@ -179,7 +191,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     "&radius=1000&sensor=true"+"&types=food%7Cbar"+
                     "&key=AIzaSyA_os0YpUO-LdmsyMjzZY5jFrqHjO8bpDc";
             Log.d("SEASTR", placesSearchStr);
-            new DownloadFiles(this).execute(lat4,lon4);
+        search=1;
+            new DownloadFiles(this).execute(lat4, lon4, search);
 
 
 
@@ -194,9 +207,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 @Override
                 public void onMarkerDrag(Marker marker) {
-                    if(marker.getTitle().equals("Meeting Place")) {
-                        marker.setSnippet("Find New Location");
-                    }
+
                 }
 
                 @Override
@@ -207,7 +218,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if(marker.getTitle().equals("Meeting Place")) {
                         message = locationfind(loc.latitude, loc.longitude);
                         marker.setSnippet("New Location");
+                        search =1;
+                            new DownloadFiles(MapsActivity.this).execute(marker.getPosition().latitude, marker.getPosition().longitude,search);
+
                     }
+                }
+            });
+
+            mMap.setOnMarkerClickListener(new OnMarkerClickListener(){
+
+                @Override
+                public boolean onMarkerClick(Marker marker) {
+                    URL imageURL = null;
+                    try {
+                        imageURL = new URL("https://maps.googleapis.com/maps/api/streetview?size=400x400&location="+marker.getPosition().latitude+","+marker.getPosition().longitude+"&fov=90&heading=235&pitch=10&key=AIzaSyA_os0YpUO-LdmsyMjzZY5jFrqHjO8bpDc");
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    }
+
+
+                    Log.d("IC URL", imageURL.toString());
+
+                    new DownloadImageTask().execute(imageURL.toString());
+
+                    return false;
                 }
             });
 
@@ -222,8 +256,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     intent.putExtra(EXTRA_MESSAGE, message);
 
                     startActivity(intent);
-                                }
-                            });
+                }
+            });
 
 
                         }
@@ -339,6 +373,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
        LatLng loc= meet.getPosition();
         Log.d("LOC",loc.toString());
         message = locationfind(loc.latitude,loc.longitude);
+    }
+
+    public class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+
+        protected void onPreExecute() {
+        }
+
+        protected Bitmap doInBackground(String... urls) {
+
+            String urldisplay = urls[0];
+            bitmap = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                bitmap = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                Log.e("Error", "image download error");
+                Log.e("Error", e.getMessage());
+                e.printStackTrace();
+            }
+            return bitmap;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            //set image of your imageview
+            //roundedImage = new RoundImage(result);
+            //imageView1.setBackground(roundedImage);
+            Toast.makeText(getApplicationContext(), "Image Loaded",
+                    Toast.LENGTH_SHORT).show();
+            ImageView street = (ImageView) findViewById(R.id.streetview);
+            street.setImageBitmap(result);
+        }
     }
 
 
